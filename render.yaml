@@ -43,10 +43,10 @@ services:
     routes:
       - type: rewrite
         source: /api/*
-        destination: https://resolve-ai-api.onrender.com/api/*
+        destination: https://resolve-ai-api-3zs7.onrender.com/api/*
       - type: rewrite
         source: /uploads/*
-        destination: https://resolve-ai-api.onrender.com/uploads/*
+        destination: https://resolve-ai-api-3zs7.onrender.com/uploads/*
       - type: rewrite
         source: /*
         destination: /index.html

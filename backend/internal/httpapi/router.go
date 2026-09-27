@@ -32,7 +32,7 @@ func NewServer(auth *service.AuthService, occ *service.OccurrenceService, files 
 
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, middleware.Logger, middleware.Recoverer)
+	r.Use(middleware.RequestID, middleware.RealIP, skipHealth(middleware.Logger), middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(s.cors)
 
@@ -69,6 +69,20 @@ func (s *Server) Routes() http.Handler {
 		})
 	})
 	return r
+}
+
+// skipHealth evita poluir o log com o health check periódico do provedor de cloud.
+func skipHealth(mw func(http.Handler) http.Handler) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		logged := mw(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			logged.ServeHTTP(w, r)
+		})
+	}
 }
 
 type ctxKey struct{}

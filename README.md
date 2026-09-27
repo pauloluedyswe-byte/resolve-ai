@@ -149,6 +149,8 @@ O arquivo [`render.yaml`](render.yaml) é um *Blueprint* do [Render](https://ren
 | `resolve-ai-api`  | Web Service Docker (free)    | Migrações rodam na subida; `JWT_SECRET` gerado pelo Render |
 | `resolve-ai-web`  | Static Site                  | Build do Vite; faz proxy de `/api` e `/uploads` para a API |
 
+**Produção:** https://resolve-ai-web.onrender.com (API: https://resolve-ai-api-3zs7.onrender.com/api/health)
+
 Passo a passo:
 
 1. No Render: **New → Blueprint**, conecte o GitHub e selecione este repositório.
