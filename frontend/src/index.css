@@ -4,6 +4,8 @@
   --text: #1a2233;
   --muted: #667085;
   --border: #e3e8ef;
+  --input-bg: #ffffff;
+  --input-border: #cfd6e0;
   --primary: #1f3a8a;
   --primary-hover: #172c6b;
   --accent: #e5484d;
@@ -35,6 +37,8 @@
     --text: #e6e9f0;
     --muted: #98a2b3;
     --border: #283042;
+    --input-bg: #0f1420;
+    --input-border: #3d475c;
     --primary: #5b7cfa;
     --primary-hover: #7390ff;
   }
@@ -183,8 +187,8 @@ select,
 textarea {
   font: inherit;
   color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 8px;
   padding: 9px 12px;
   width: 100%;
