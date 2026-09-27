@@ -44,7 +44,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     payload = JSON.stringify(body)
   }
 
-  const res = await fetch(`${BASE}/api${path}`, { method, headers, body: payload })
+  let res: Response
+  try {
+    // 90 s cobre o "cold start" do plano gratuito do Render (~50 s).
+    res = await fetch(`${BASE}/api${path}`, { method, headers, body: payload, signal: AbortSignal.timeout(90_000) })
+  } catch {
+    throw new ApiError(0, 'O servidor não respondeu. Verifique sua conexão e tente novamente.')
+  }
   const data = res.status === 204 ? null : await res.json().catch(() => null)
   if (!res.ok) {
     if (res.status === 401 && token) onUnauthorized()

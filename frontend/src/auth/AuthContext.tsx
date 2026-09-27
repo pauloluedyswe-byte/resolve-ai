@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, setUnauthorizedHandler, tokenStore } from '../lib/api'
+import { ApiError, api, setUnauthorizedHandler, tokenStore } from '../lib/api'
 import type { AuthResult, User } from '../lib/types'
 
 interface AuthState {
@@ -27,7 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .me()
       .then(setUser)
-      .catch(logout)
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) logout()
+      })
       .finally(() => setLoading(false))
   }, [logout])
 

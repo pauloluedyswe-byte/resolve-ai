@@ -46,6 +46,17 @@ Contra um PostgreSQL real (API executando localmente):
 - Comentário, avaliação, dashboard com indicadores.
 - Cancelamento pelo solicitante sem motivo (422) e com motivo (200).
 
+Pela interface (navegador, ambiente local com PostgreSQL real):
+
+- Cadastro de solicitante com login automático; lista vazia com chamada para registrar.
+- Nova ocorrência com imagem (pré-visualização antes do envio) → detalhe com status Aberta e histórico inicial.
+- Comentário do solicitante; opção de cancelar visível apenas enquanto Aberta.
+- Gestor: painel de gestão, prioridade Alta, atribuição de responsável, Aberta → Em análise → Em atendimento com observações.
+- Tentativa de resolver sem solução: aviso na tela e recusa da API; solução registrada → Resolvida; painel de gestão some (estado final).
+- Linha do tempo com 4 registros (status anterior → novo, data/hora, usuário, observação).
+- Solicitante vê a solução aplicada e avalia com 4 estrelas + comentário; formulário substituído pela avaliação registrada.
+- Dashboard: totais, tempo médio de resolução, satisfação média (4.0 / 5), distribuição por status, prioridade e categoria.
+
 Em produção (Render):
 
 - `GET /api/health` via proxy do frontend → 200.

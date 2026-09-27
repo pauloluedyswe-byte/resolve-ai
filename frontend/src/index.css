@@ -486,10 +486,9 @@ textarea {
   overflow: hidden;
 }
 .bar {
-  --c: var(--primary);
   display: block;
   height: 100%;
-  background: var(--c);
+  background: var(--c, var(--primary));
   border-radius: 999px;
   min-width: 2px;
 }

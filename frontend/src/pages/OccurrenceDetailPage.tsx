@@ -132,7 +132,9 @@ export function OccurrenceDetailPage() {
         <div className="stack">
           {isGestor && !isFinal(occ.status) && <GestorPanel occ={occ} run={run} />}
           {!isGestor && isOwner && occ.status === 'aberta' && (
-            <StatusChanger occ={occ} role="solicitante" run={run} />
+            <section className="card">
+              <StatusChanger occ={occ} role="solicitante" run={run} />
+            </section>
           )}
           <History occ={occ} />
         </div>
