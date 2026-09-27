@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: resolveai
+      POSTGRES_PASSWORD: resolveai
+      POSTGRES_DB: resolveai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resolveai"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://resolveai:resolveai@db:5432/resolveai?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao}
+      ADMIN_NAME: ${ADMIN_NAME:-Gestor}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-gestor@resolveai.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-gestor123}
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:
