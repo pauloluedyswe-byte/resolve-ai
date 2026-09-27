@@ -42,10 +42,7 @@ func run() error {
 		return err
 	}
 
-	files, err := repository.NewLocalFileStore(cfg.UploadDir)
-	if err != nil {
-		return err
-	}
+	files := repository.NewFileRepo(pool)
 	users := repository.NewUserRepo(pool)
 	authSvc := service.NewAuthService(users, cfg.JWTSecret, cfg.JWTTTL)
 	occSvc := service.NewOccurrenceService(
@@ -59,7 +56,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewServer(authSvc, occSvc, files.Dir(), cfg.CORSOrigins).Routes(),
+		Handler:           httpapi.NewServer(authSvc, occSvc, files, cfg.CORSOrigins).Routes(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {

@@ -4,11 +4,27 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
+
 	"resolveai/internal/domain"
 	"resolveai/internal/service"
 )
 
 const maxImageSize = 5 << 20 // 5 MB
+
+// ---- Arquivos ----
+
+func (s *Server) serveFile(w http.ResponseWriter, r *http.Request) {
+	contentType, data, err := s.files.Get(r.Context(), chi.URLParam(r, "name"))
+	if err != nil {
+		writeDomainError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Write(data)
+}
 
 // ---- Autenticação ----
 

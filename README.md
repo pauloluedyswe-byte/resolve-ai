@@ -98,7 +98,9 @@ Solicitantes só enxergam as próprias ocorrências (ocorrências de terceiros r
 
 ### Modelo de dados
 
-`users` · `categories` · `occurrences` · `comments` · `status_history` — ver [`001_init.sql`](backend/internal/database/migrations/001_init.sql).
+`users` · `categories` · `occurrences` · `comments` · `status_history` · `files` — ver [`migrations/`](backend/internal/database/migrations/).
+
+As imagens anexadas são gravadas no próprio PostgreSQL (tabela `files`, servidas em `/uploads/<nome>`), o que dispensa disco persistente no servidor.
 
 ## API
 
@@ -134,17 +136,25 @@ Erros seguem o formato `{"error": "mensagem"}` com `400`, `401`, `403`, `404`, `
 | `DATABASE_URL`   | `postgres://resolveai:resolveai@localhost:5432/resolveai?sslmode=disable` | |
 | `JWT_SECRET`     | — (obrigatório, ≥ 16 chars)    | Chave de assinatura dos tokens         |
 | `JWT_TTL`        | `24h`                          | Validade do token                      |
-| `UPLOAD_DIR`     | `./uploads`                    | Onde as imagens são gravadas           |
 | `CORS_ORIGINS`   | `http://localhost:5173`        | Lista separada por vírgula             |
 | `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Seed do gestor inicial (idempotente) |
 
-## Deploy em Cloud
+## Deploy em Cloud (Render)
 
-As imagens são independentes e sem estado (exceto uploads), então funcionam em qualquer provedor de containers. Um caminho simples:
+O arquivo [`render.yaml`](render.yaml) é um *Blueprint* do [Render](https://render.com) que cria tudo de uma vez:
 
-1. **Banco**: PostgreSQL gerenciado (AWS RDS, GCP Cloud SQL, Azure Database, Neon, Render…). Configure `DATABASE_URL` (com `sslmode=require`).
-2. **Backend**: publique `backend/Dockerfile` em um serviço de containers (Cloud Run, ECS/Fargate, Azure Container Apps, Render, Fly.io). As migrações rodam automaticamente na subida. Monte um volume persistente em `/app/uploads` ou troque `LocalFileStore` por uma implementação de object storage (S3/GCS) da interface `service.FileStore`.
-3. **Frontend**: publique `frontend/Dockerfile` e defina `BACKEND_URL` com a URL interna do backend (o Nginx faz proxy de `/api` e `/uploads`, sem CORS). Alternativa: build estático (`VITE_API_URL=https://api.seudominio`) em um CDN, adicionando o domínio em `CORS_ORIGINS`.
-4. Defina `JWT_SECRET` e `ADMIN_PASSWORD` fortes via secrets do provedor.
+| Recurso           | Tipo                         | Observação                                           |
+|-------------------|------------------------------|------------------------------------------------------|
+| `resolve-ai-db`   | PostgreSQL (free)            | `DATABASE_URL` injetada automaticamente na API       |
+| `resolve-ai-api`  | Web Service Docker (free)    | Migrações rodam na subida; `JWT_SECRET` gerado pelo Render |
+| `resolve-ai-web`  | Static Site                  | Build do Vite; faz proxy de `/api` e `/uploads` para a API |
+
+Passo a passo:
+
+1. No Render: **New → Blueprint**, conecte o GitHub e selecione este repositório.
+2. Informe `ADMIN_EMAIL` e `ADMIN_PASSWORD` do gestor inicial quando solicitado.
+3. Clique em **Apply**. A cada push na `main` o Render faz o redeploy.
+
+Limitações do plano gratuito: a API "hiberna" após ~15 min sem uso (a primeira requisição seguinte leva ~1 min) e o PostgreSQL free expira após 30 dias — para a entrega final, considere o plano pago do banco.
 
 O workflow `.github/workflows/ci.yml` roda lint, testes e build das imagens a cada push/PR.

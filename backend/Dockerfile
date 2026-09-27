@@ -9,8 +9,7 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates && adduser -D -u 10001 app
 WORKDIR /app
 COPY --from=build /out/api /app/api
-RUN mkdir -p /app/uploads && chown app /app/uploads
 USER app
-ENV PORT=8080 UPLOAD_DIR=/app/uploads
+ENV PORT=8080
 EXPOSE 8080
 ENTRYPOINT ["/app/api"]

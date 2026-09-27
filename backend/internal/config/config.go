@@ -12,7 +12,6 @@ type Config struct {
 	DatabaseURL   string
 	JWTSecret     string
 	JWTTTL        time.Duration
-	UploadDir     string
 	CORSOrigins   []string
 	AdminName     string
 	AdminEmail    string
@@ -24,7 +23,6 @@ func Load() (*Config, error) {
 		Port:          env("PORT", "8080"),
 		DatabaseURL:   env("DATABASE_URL", "postgres://resolveai:resolveai@localhost:5432/resolveai?sslmode=disable"),
 		JWTSecret:     os.Getenv("JWT_SECRET"),
-		UploadDir:     env("UPLOAD_DIR", "./uploads"),
 		CORSOrigins:   strings.Split(env("CORS_ORIGINS", "http://localhost:5173"), ","),
 		AdminName:     env("ADMIN_NAME", "Gestor"),
 		AdminEmail:    os.Getenv("ADMIN_EMAIL"),

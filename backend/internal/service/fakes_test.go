@@ -173,7 +173,7 @@ func (f *fakeOccurrences) Stats(context.Context) (*domain.DashboardStats, error)
 
 type fakeFiles struct{}
 
-func (fakeFiles) Save(_ context.Context, ext string, r io.Reader) (string, error) {
+func (fakeFiles) Save(_ context.Context, _, ext string, r io.Reader) (string, error) {
 	io.Copy(io.Discard, r)
 	return "/uploads/test" + ext, nil
 }

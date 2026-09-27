@@ -33,7 +33,7 @@ func token(t *testing.T, role domain.Role) string {
 
 func TestRouterAuth(t *testing.T) {
 	auth := service.NewAuthService(nil, secret, time.Hour)
-	h := NewServer(auth, service.NewOccurrenceService(nil, nil, nil, nil), t.TempDir(), []string{"http://localhost:5173"}).Routes()
+	h := NewServer(auth, service.NewOccurrenceService(nil, nil, nil, nil), nil, []string{"http://localhost:5173"}).Routes()
 
 	cases := []struct {
 		name, method, path, token string
@@ -63,7 +63,7 @@ func TestRouterAuth(t *testing.T) {
 }
 
 func TestCORSPreflight(t *testing.T) {
-	h := NewServer(service.NewAuthService(nil, secret, time.Hour), nil, t.TempDir(), []string{"http://localhost:5173"}).Routes()
+	h := NewServer(service.NewAuthService(nil, secret, time.Hour), nil, nil, []string{"http://localhost:5173"}).Routes()
 	req := httptest.NewRequest("OPTIONS", "/api/occurrences", nil)
 	req.Header.Set("Origin", "http://localhost:5173")
 	rec := httptest.NewRecorder()

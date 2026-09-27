@@ -1,0 +1,52 @@
+# Blueprint do Render: https://render.com/docs/blueprint-spec
+# Cria banco PostgreSQL, API em Go (Docker) e frontend estático.
+databases:
+  - name: resolve-ai-db
+    plan: free
+    region: virginia
+    databaseName: resolveai
+    user: resolveai
+
+services:
+  - type: web
+    name: resolve-ai-api
+    runtime: docker
+    plan: free
+    region: virginia
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: resolve-ai-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_NAME
+        value: Gestor
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://resolve-ai-web.onrender.com
+
+  - type: web
+    name: resolve-ai-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    # O frontend usa URLs relativas; o Render faz proxy de /api e /uploads para a API.
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://resolve-ai-api.onrender.com/api/*
+      - type: rewrite
+        source: /uploads/*
+        destination: https://resolve-ai-api.onrender.com/uploads/*
+      - type: rewrite
+        source: /*
+        destination: /index.html

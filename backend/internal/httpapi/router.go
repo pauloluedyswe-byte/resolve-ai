@@ -14,15 +14,20 @@ import (
 	"resolveai/internal/service"
 )
 
+// FileReader lê arquivos enviados (imagens) para servi-los em /uploads.
+type FileReader interface {
+	Get(ctx context.Context, name string) (contentType string, data []byte, err error)
+}
+
 type Server struct {
 	auth        *service.AuthService
 	occurrences *service.OccurrenceService
-	uploadDir   string
+	files       FileReader
 	corsOrigins []string
 }
 
-func NewServer(auth *service.AuthService, occ *service.OccurrenceService, uploadDir string, corsOrigins []string) *Server {
-	return &Server{auth: auth, occurrences: occ, uploadDir: uploadDir, corsOrigins: corsOrigins}
+func NewServer(auth *service.AuthService, occ *service.OccurrenceService, files FileReader, corsOrigins []string) *Server {
+	return &Server{auth: auth, occurrences: occ, files: files, corsOrigins: corsOrigins}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -31,7 +36,7 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(s.cors)
 
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(s.uploadDir))))
+	r.Get("/uploads/{name}", s.serveFile)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {

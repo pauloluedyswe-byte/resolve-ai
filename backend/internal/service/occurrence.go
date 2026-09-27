@@ -11,7 +11,7 @@ import (
 
 // FileStore persiste arquivos enviados (imagens) e devolve a URL pública.
 type FileStore interface {
-	Save(ctx context.Context, ext string, r io.Reader) (url string, err error)
+	Save(ctx context.Context, contentType, ext string, r io.Reader) (url string, err error)
 }
 
 type OccurrenceService struct {
@@ -258,7 +258,7 @@ func (s *OccurrenceService) AttachImage(ctx context.Context, actor Actor, id int
 	if !ok {
 		return nil, domain.Invalid("formato de imagem não suportado (use JPG, PNG, WEBP ou GIF)")
 	}
-	url, err := s.files.Save(ctx, ext, r)
+	url, err := s.files.Save(ctx, contentType, ext, r)
 	if err != nil {
 		return nil, err
 	}
