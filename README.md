@@ -10,6 +10,10 @@ MVP Full Stack do Hackathon POSTECH FSDT (Fase 5). Usuários registram ocorrênc
 | Testes    | `go test` (domínio, serviços, HTTP) · Vitest            |
 | Infra     | Docker · Docker Compose · Nginx · GitHub Actions (CI)   |
 
+**Em produção:** https://resolve-ai-web.onrender.com
+
+📚 **Documentação completa** (descoberta do domínio, regras de negócio, fluxos, arquitetura, modelo de dados e testes): [`docs/`](docs/README.md)
+
 ## Como rodar
 
 ### Tudo com Docker (recomendado)
