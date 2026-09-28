@@ -32,7 +32,7 @@ Cada push na branch `main` dispara o CI (lint, testes e build das imagens Docker
 | **Solicitante** | Criar conta em https://resolve-ai-web.onrender.com/cadastro |
 | **Gestor** | Criado automaticamente pela API a partir das variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD` do serviço `resolve-ai-api` ([ver/editar](https://dashboard.render.com/web/srv-dasksf0473hc738p97vg/env)) |
 
-| **Clientes de demonstração** | 8 solicitantes (`ana.souza@exemplo.com`, `bruno.lima@exemplo.com`, …) criados pelo comando `seed`, com 20 ocorrências; senha definida em `SEED_PASSWORD` na execução |
+| **Reclamantes de demonstração** | 20 solicitantes com nomes aleatórios (e-mails `nome.sobrenome@exemplo.com`), um por ocorrência, criados pelo comando `seed`; senha definida em `SEED_PASSWORD` na execução |
 
 > As credenciais **não** ficam registradas no repositório. Para recuperá-las, consulte as variáveis de ambiente no painel do Render. O gestor só é criado se o e-mail ainda não existir; para criar outro, altere `ADMIN_EMAIL` (com um e-mail ainda não cadastrado) e `ADMIN_PASSWORD` e salve — o Render reinicia a API.
 

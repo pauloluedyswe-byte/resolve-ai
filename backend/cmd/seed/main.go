@@ -1,12 +1,15 @@
 // Comando seed popula o banco com clientes e ocorrências de demonstração.
 //
-//	DATABASE_URL=... SEED_PASSWORD=... go run ./cmd/seed
+//	DATABASE_URL=... SEED_PASSWORD=... [SEED_RESET=true] go run ./cmd/seed
 //
-// Cria 8 solicitantes (e-mails @exemplo.com) e 20 ocorrências em todos os
-// estados do ciclo de vida, com histórico, comentários, soluções e avaliações
-// coerentes com as regras de negócio. As ocorrências são atribuídas ao
-// primeiro gestor cadastrado. É idempotente: não faz nada se os clientes de
-// demonstração já existirem.
+// Cria 20 ocorrências em todos os estados do ciclo de vida, cada uma aberta
+// por um reclamante diferente com nome aleatório (e-mail @exemplo.com), com
+// histórico, comentários, soluções e avaliações coerentes com as regras de
+// negócio. As ocorrências são atribuídas ao primeiro gestor cadastrado.
+//
+// É idempotente: não faz nada se já houver reclamantes de demonstração.
+// Com SEED_RESET=true, remove antes apenas os dados de demonstração
+// (usuários @exemplo.com e suas ocorrências), preservando os demais.
 package main
 
 import (
@@ -14,27 +17,55 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
 	"resolveai/internal/database"
 	"resolveai/internal/domain"
 )
 
+const demoDomain = "@exemplo.com"
+
+var (
+	firstNames = []string{
+		"Adriana", "Alexandre", "Aline", "André", "Beatriz", "Caio", "Camila", "Carlos", "Cecília", "Daniel",
+		"Débora", "Eduardo", "Elaine", "Fábio", "Fernanda", "Gustavo", "Helena", "Igor", "Isabela", "João",
+		"Juliana", "Larissa", "Leandro", "Letícia", "Lucas", "Marcela", "Marcos", "Mariana", "Mateus", "Natália",
+		"Otávio", "Patrícia", "Paula", "Rafael", "Renata", "Ricardo", "Rodrigo", "Sabrina", "Sérgio", "Tatiane",
+		"Thiago", "Valéria", "Vinícius", "Vitória", "Wagner",
+	}
+	lastNames = []string{
+		"Almeida", "Andrade", "Araújo", "Barbosa", "Barros", "Cardoso", "Carvalho", "Castro", "Correia", "Costa",
+		"Cunha", "Dias", "Farias", "Ferreira", "Freitas", "Gomes", "Lopes", "Machado", "Martins", "Melo",
+		"Monteiro", "Moraes", "Moreira", "Nascimento", "Oliveira", "Pereira", "Pinto", "Ramos", "Ribeiro", "Rocha",
+		"Santos", "Silva", "Soares", "Souza", "Teixeira", "Vieira",
+	}
+	accents = strings.NewReplacer("á", "a", "â", "a", "ã", "a", "é", "e", "ê", "e", "í", "i", "ó", "o", "ô", "o", "ú", "u", "ç", "c")
+)
+
 type client struct{ name, email string }
 
-var clients = []client{
-	{"Ana Souza", "ana.souza@exemplo.com"},
-	{"Bruno Lima", "bruno.lima@exemplo.com"},
-	{"Carla Mendes", "carla.mendes@exemplo.com"},
-	{"Diego Rocha", "diego.rocha@exemplo.com"},
-	{"Eduarda Alves", "eduarda.alves@exemplo.com"},
-	{"Felipe Castro", "felipe.castro@exemplo.com"},
-	{"Gabriela Nunes", "gabriela.nunes@exemplo.com"},
-	{"Henrique Dias", "henrique.dias@exemplo.com"},
+// randomClients gera n reclamantes com nomes aleatórios e e-mails únicos.
+func randomClients(n int) []client {
+	seen := map[string]bool{}
+	out := make([]client, 0, n)
+	for len(out) < n {
+		first := firstNames[rand.IntN(len(firstNames))]
+		last := lastNames[rand.IntN(len(lastNames))]
+		email := accents.Replace(strings.ToLower(first+"."+last)) + demoDomain
+		if seen[email] {
+			continue
+		}
+		seen[email] = true
+		out = append(out, client{first + " " + last, email})
+	}
+	return out
 }
 
 // comment: from "r" = solicitante, "g" = gestor.
@@ -42,7 +73,6 @@ type comment struct{ from, body string }
 
 type occurrence struct {
 	title, description, category, location string
-	requester                              int // índice em clients
 	priority                               domain.Priority
 	status                                 domain.Status
 	daysAgo                                float64
@@ -58,87 +88,87 @@ var occurrences = []occurrence{
 	// ---- Resolvidas ----
 	{title: "Lâmpada queimada no corredor do 3º andar", category: "Iluminação", location: "Bloco A, 3º andar",
 		description: "A lâmpada em frente ao apartamento 32 está queimada há dois dias. À noite o corredor fica totalmente escuro.",
-		requester:   0, priority: domain.PriorityMedia, status: domain.StatusResolvida, daysAgo: 20,
-		comments: []comment{{"g", "Equipe de manutenção agendada para amanhã pela manhã."}, {"r", "Obrigada pelo retorno rápido!"}},
+		priority:    domain.PriorityMedia, status: domain.StatusResolvida, daysAgo: 20,
+		comments: []comment{{"g", "Equipe de manutenção agendada para amanhã pela manhã."}, {"r", "Agradeço o retorno rápido!"}},
 		solution: "Lâmpada substituída por modelo LED de 12 W.", rating: 5, ratingComment: "Resolveram no dia seguinte, excelente."},
 	{title: "Vazamento no teto da garagem", category: "Vazamentos", location: "Subsolo, próximo à vaga 12",
 		description: "Água pingando do teto da garagem, formando poça e deixando o piso escorregadio.",
-		requester:   1, priority: domain.PriorityAlta, status: domain.StatusResolvida, daysAgo: 18,
+		priority:    domain.PriorityAlta, status: domain.StatusResolvida, daysAgo: 18,
 		comments: []comment{{"r", "Piorou com a chuva de ontem."}, {"g", "Encanador identificou cano rompido na laje; reparo em andamento."}},
 		solution: "Troca de 2 m de tubulação rompida e impermeabilização do trecho da laje.", rating: 4, ratingComment: "Demorou um pouco, mas ficou bem feito."},
 	{title: "Portão da garagem não fecha sozinho", category: "Equipamentos quebrados", location: "Portão principal da garagem",
 		description: "O portão abre normalmente, mas não fecha automaticamente. Precisa acionar o controle duas vezes.",
-		requester:   2, priority: domain.PriorityCritica, status: domain.StatusResolvida, daysAgo: 16,
+		priority:    domain.PriorityCritica, status: domain.StatusResolvida, daysAgo: 16,
 		comments: []comment{{"g", "Técnico da empresa do portão acionado em caráter de urgência."}},
 		solution: "Sensor fotoelétrico desalinhado; realinhado e placa de comando reprogramada.", rating: 5, ratingComment: "Muito importante para a segurança, obrigado pela agilidade."},
 	{title: "Lixeira do térreo sem recolhimento", category: "Limpeza", location: "Área de lixo, térreo do Bloco B",
 		description: "O lixo não foi recolhido no fim de semana e está com mau cheiro.",
-		requester:   3, priority: domain.PriorityMedia, status: domain.StatusResolvida, daysAgo: 12,
+		priority:    domain.PriorityMedia, status: domain.StatusResolvida, daysAgo: 12,
 		solution: "Recolhimento realizado e escala de limpeza do fim de semana reforçada.", rating: 3, ratingComment: "Resolveu, mas já é a segunda vez que acontece."},
 	{title: "Interfone do apartamento 104 sem áudio", category: "Manutenção", location: "Bloco B, apartamento 104",
 		description: "Consigo ouvir a portaria, mas eles não me ouvem quando atendo o interfone.",
-		requester:   4, priority: domain.PriorityBaixa, status: domain.StatusResolvida, daysAgo: 9,
+		priority:    domain.PriorityBaixa, status: domain.StatusResolvida, daysAgo: 9,
 		comments: []comment{{"g", "Aparelho será testado na próxima visita técnica."}},
 		solution: "Microfone do monofone substituído."},
 
 	// ---- Em atendimento ----
 	{title: "Elevador social parando entre andares", category: "Equipamentos quebrados", location: "Bloco A, elevador social",
 		description: "O elevador parou entre o 5º e o 6º andar duas vezes esta semana. Tem idosos no prédio que dependem dele.",
-		requester:   5, priority: domain.PriorityCritica, status: domain.StatusEmAtendimento, daysAgo: 6,
-		comments: []comment{{"r", "Hoje fiquei preso por uns 10 minutos."}, {"g", "Elevador interditado; empresa de manutenção trocando o quadro de comando."}}},
+		priority:    domain.PriorityCritica, status: domain.StatusEmAtendimento, daysAgo: 6,
+		comments: []comment{{"r", "Hoje o elevador parou comigo dentro por uns 10 minutos."}, {"g", "Elevador interditado; empresa de manutenção trocando o quadro de comando."}}},
 	{title: "Rampa de acesso com piso quebrado", category: "Acessibilidade", location: "Entrada principal, rampa lateral",
 		description: "Há placas soltas no piso da rampa. Cadeirantes e carrinhos de bebê têm dificuldade para passar.",
-		requester:   6, priority: domain.PriorityAlta, status: domain.StatusEmAtendimento, daysAgo: 5,
+		priority:    domain.PriorityAlta, status: domain.StatusEmAtendimento, daysAgo: 5,
 		comments: []comment{{"g", "Orçamento aprovado; obra começa esta semana."}}},
 	{title: "Infiltração na parede da área de lazer", category: "Vazamentos", location: "Salão de festas",
 		description: "Mancha de umidade crescendo na parede ao lado da churrasqueira, com mofo.",
-		requester:   0, priority: domain.PriorityMedia, status: domain.StatusEmAtendimento, daysAgo: 4},
+		priority:    domain.PriorityMedia, status: domain.StatusEmAtendimento, daysAgo: 4},
 	{title: "Câmera da portaria sem imagem", category: "Segurança", location: "Portaria, câmera da entrada de pedestres",
 		description: "O monitor da portaria mostra tela preta para a câmera do portão de pedestres.",
-		requester:   7, priority: domain.PriorityAlta, status: domain.StatusEmAtendimento, daysAgo: 3,
+		priority:    domain.PriorityAlta, status: domain.StatusEmAtendimento, daysAgo: 3,
 		comments: []comment{{"g", "Fonte da câmera queimada; peça encomendada."}}},
 
 	// ---- Em análise ----
 	{title: "Refletor da quadra apagado", category: "Iluminação", location: "Quadra poliesportiva",
 		description: "Dois dos quatro refletores da quadra não acendem, impossível jogar à noite.",
-		requester:   1, priority: domain.PriorityBaixa, status: domain.StatusEmAnalise, daysAgo: 3},
+		priority:    domain.PriorityBaixa, status: domain.StatusEmAnalise, daysAgo: 3},
 	{title: "Barulho excessivo na casa de máquinas", category: "Manutenção", location: "Cobertura do Bloco B",
 		description: "Ruído metálico constante vindo da casa de máquinas, dá para ouvir no último andar.",
-		requester:   2, priority: domain.PriorityMedia, status: domain.StatusEmAnalise, daysAgo: 2.5,
+		priority:    domain.PriorityMedia, status: domain.StatusEmAnalise, daysAgo: 2.5,
 		comments: []comment{{"g", "Vamos verificar se é o motor do elevador ou a bomba d'água."}}},
 	{title: "Falta de corrimão na escada do bloco C", category: "Acessibilidade", location: "Bloco C, escada de emergência",
 		description: "A escada de emergência não tem corrimão entre o 1º e o 2º andar.",
-		requester:   3, priority: domain.PriorityAlta, status: domain.StatusEmAnalise, daysAgo: 2},
+		priority:    domain.PriorityAlta, status: domain.StatusEmAnalise, daysAgo: 2},
 	{title: "Piscina com água turva", category: "Limpeza", location: "Área da piscina",
 		description: "A água da piscina está turva e esverdeada desde o último fim de semana.",
-		requester:   4, priority: domain.PriorityMedia, status: domain.StatusEmAnalise, daysAgo: 1.5},
+		priority:    domain.PriorityMedia, status: domain.StatusEmAnalise, daysAgo: 1.5},
 
 	// ---- Abertas ----
 	{title: "Porta corta-fogo não fecha", category: "Segurança", location: "Bloco A, 7º andar",
 		description: "A mola da porta corta-fogo está fraca e a porta fica aberta.",
-		requester:   5, priority: domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 1},
+		priority:    domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 1},
 	{title: "Vazamento na torneira do jardim", category: "Vazamentos", location: "Jardim interno, próximo ao playground",
 		description: "Torneira pingando sem parar, desperdiçando água.",
-		requester:   6, priority: domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 0.8},
+		priority:    domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 0.8},
 	{title: "Brinquedo quebrado no playground", category: "Equipamentos quebrados", location: "Playground",
 		description: "O balanço está com a corrente solta de um lado, risco para as crianças.",
-		requester:   7, priority: domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 0.5,
+		priority:    domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 0.5,
 		comments: []comment{{"r", "Coloquei uma fita para ninguém usar até o conserto."}}},
 	{title: "Sujeira acumulada na escada do bloco B", category: "Limpeza", location: "Bloco B, escadas",
 		description: "As escadas não são varridas há alguns dias, com folhas e poeira.",
-		requester:   0, priority: domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 0.3},
+		priority:    domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 0.3},
 	{title: "Sugestão: bicicletário coberto", category: "Outros", location: "Área externa, lateral do Bloco C",
 		description: "As bicicletas ficam expostas à chuva. Sugiro instalar uma cobertura simples.",
-		requester:   1, priority: domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 0.1},
+		priority:    domain.PriorityMedia, status: domain.StatusAberta, daysAgo: 0.1},
 
 	// ---- Canceladas ----
 	{title: "Lâmpada da escada piscando", category: "Iluminação", location: "Bloco C, escada, 2º andar",
 		description: "A lâmpada fica piscando o tempo todo.",
-		requester:   2, priority: domain.PriorityMedia, status: domain.StatusCancelada, daysAgo: 7,
+		priority:    domain.PriorityMedia, status: domain.StatusCancelada, daysAgo: 7,
 		cancelNote: "Era mau contato; o próprio morador ajustou o soquete.", cancelledByRequester: true},
 	{title: "Portão de pedestres emperrado", category: "Equipamentos quebrados", location: "Portão de pedestres",
 		description: "O portão de pedestres está emperrando ao abrir.",
-		requester:   3, priority: domain.PriorityMedia, status: domain.StatusCancelada, daysAgo: 10,
+		priority:    domain.PriorityMedia, status: domain.StatusCancelada, daysAgo: 10,
 		comments:   []comment{{"g", "Já existe um chamado aberto para este portão com a empresa de manutenção."}},
 		cancelNote: "Ocorrência duplicada: o problema já está sendo tratado em outro chamado."},
 }
@@ -174,12 +204,18 @@ func run() error {
 		return err
 	}
 
+	if os.Getenv("SEED_RESET") == "true" {
+		if err := resetDemo(ctx, pool); err != nil {
+			return err
+		}
+	}
+
 	var exists bool
-	if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`, clients[0].email).Scan(&exists); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE email LIKE '%'||$1)`, demoDomain).Scan(&exists); err != nil {
 		return err
 	}
 	if exists {
-		fmt.Println("dados de demonstração já existem; nada a fazer")
+		fmt.Println("dados de demonstração já existem; nada a fazer (use SEED_RESET=true para recriá-los)")
 		return nil
 	}
 
@@ -216,6 +252,7 @@ func run() error {
 		}
 
 		now := time.Now()
+		clients := randomClients(len(occurrences))
 		clientIDs := make([]int64, len(clients))
 		for i, c := range clients {
 			created := now.Add(-22 * 24 * time.Hour).Add(time.Duration(i) * time.Hour)
@@ -226,16 +263,39 @@ func run() error {
 			}
 		}
 
-		for _, o := range occurrences {
+		// Cada ocorrência é aberta por um reclamante diferente.
+		for i, o := range occurrences {
 			catID, ok := categories[o.category]
 			if !ok {
 				return fmt.Errorf("categoria desconhecida: %s", o.category)
 			}
-			if err := insertOccurrence(ctx, tx, o, catID, clientIDs[o.requester], gestorID, now); err != nil {
+			if err := insertOccurrence(ctx, tx, o, catID, clientIDs[i], gestorID, now); err != nil {
 				return fmt.Errorf("%q: %w", o.title, err)
 			}
 		}
-		fmt.Printf("criados %d clientes e %d ocorrências (responsável: gestor #%d)\n", len(clients), len(occurrences), gestorID)
+		fmt.Printf("criados %d reclamantes e %d ocorrências (responsável: gestor #%d)\n", len(clients), len(occurrences), gestorID)
+		return nil
+	})
+}
+
+// resetDemo remove somente os dados de demonstração: usuários @exemplo.com e as
+// ocorrências abertas por eles (comentários e histórico caem em cascata).
+func resetDemo(ctx context.Context, pool *pgxpool.Pool) error {
+	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		occ, err := tx.Exec(ctx, `DELETE FROM occurrences WHERE requester_id IN
+			(SELECT id FROM users WHERE email LIKE '%'||$1)`, demoDomain)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM comments WHERE author_id IN
+			(SELECT id FROM users WHERE email LIKE '%'||$1)`, demoDomain); err != nil {
+			return err
+		}
+		users, err := tx.Exec(ctx, `DELETE FROM users WHERE email LIKE '%'||$1`, demoDomain)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("removidos %d reclamantes e %d ocorrências de demonstração\n", users.RowsAffected(), occ.RowsAffected())
 		return nil
 	})
 }

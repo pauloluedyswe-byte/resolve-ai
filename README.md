@@ -46,11 +46,11 @@ npm run dev
 
 ### Dados de demonstração
 
-O comando `seed` cria 8 clientes (solicitantes `@exemplo.com`) e 20 ocorrências em todos os status, com histórico, comentários, soluções e avaliações, atribuídas ao primeiro gestor cadastrado. É idempotente e exige que já exista um gestor.
+O comando `seed` cria 20 ocorrências em todos os status, cada uma aberta por um reclamante diferente com nome aleatório (solicitantes `@exemplo.com`), com histórico, comentários, soluções e avaliações, atribuídas ao primeiro gestor cadastrado. É idempotente e exige que já exista um gestor. Com `SEED_RESET=true`, apaga antes **apenas** os dados de demonstração e os recria.
 
 ```bash
 cd backend
-DATABASE_URL=postgres://... SEED_PASSWORD=<senha dos clientes demo> go run ./cmd/seed
+DATABASE_URL=postgres://... SEED_PASSWORD=<senha dos reclamantes demo> [SEED_RESET=true] go run ./cmd/seed
 ```
 
 ### Testes
