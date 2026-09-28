@@ -9,6 +9,7 @@ Documentação do MVP desenvolvido para o Hackathon POSTECH FSDT (Fase 5), cobri
 | 3 | [Arquitetura](03-arquitetura.md) | Visão de containers, camadas do backend, deploy no Render e decisões de arquitetura (ADRs) |
 | 4 | [Modelo de dados](04-modelo-de-dados.md) | Diagrama entidade-relacionamento e dicionário de dados |
 | 5 | [Qualidade e testes](05-qualidade-e-testes.md) | Estratégia de testes, CI e verificações realizadas |
+| 6 | [Ambientes e links](06-ambientes-e-links.md) | Onde estão hospedados frontend, API e banco (Render), repositório/CI (GitHub), acesso de gestor e limites do plano gratuito |
 
 Referência da API REST, variáveis de ambiente e instruções de execução: [README principal](../README.md).
 
