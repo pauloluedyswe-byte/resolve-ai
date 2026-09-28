@@ -8,7 +8,7 @@ Onde cada parte da aplicação está hospedada e como acessá-la.
 |------------|-------------------|-------------|--------|
 | **Frontend** (React) | `resolve-ai-web` — Static Site | https://resolve-ai-web.onrender.com | [dashboard](https://dashboard.render.com/static/srv-dasks5g473hc738p80q0) |
 | **Backend / API** (Go) | `resolve-ai-api` — Web Service (Docker) | https://resolve-ai-api-3zs7.onrender.com — health check: [`/api/health`](https://resolve-ai-api-3zs7.onrender.com/api/health) | [dashboard](https://dashboard.render.com/web/srv-dasksf0473hc738p97vg) · [variáveis de ambiente](https://dashboard.render.com/web/srv-dasksf0473hc738p97vg/env) · [logs](https://dashboard.render.com/web/srv-dasksf0473hc738p97vg/logs) |
-| **Banco de dados** (PostgreSQL) | `resolve-ai-db` — PostgreSQL (free) | Sem acesso público; conectado à API pela variável `DATABASE_URL` | Acessível pelo [Blueprint](https://dashboard.render.com/blueprint/exs-dasks2vpn0mc738s37og) → `resolve-ai-db` |
+| **Banco de dados** (PostgreSQL) | `resolve-ai-db` — PostgreSQL (free) · banco `resolveai_xs6d`, usuário `resolveai` | Sem página pública; conectado à API pela variável `DATABASE_URL`. Para acesso externo (DBeaver/pgAdmin/psql), use a *External Database URL* do painel, com SSL | Acessível pelo [Blueprint](https://dashboard.render.com/blueprint/exs-dasks2vpn0mc738s37og) → `resolve-ai-db` |
 | **Blueprint** (infraestrutura como código) | Definido em [`render.yaml`](../render.yaml) | — | [dashboard](https://dashboard.render.com/blueprint/exs-dasks2vpn0mc738s37og) |
 
 - Os links de **painel** só funcionam para quem tem acesso à conta/workspace do Render.
