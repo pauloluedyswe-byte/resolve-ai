@@ -44,6 +44,15 @@ npm install
 npm run dev
 ```
 
+### Dados de demonstração
+
+O comando `seed` cria 8 clientes (solicitantes `@exemplo.com`) e 20 ocorrências em todos os status, com histórico, comentários, soluções e avaliações, atribuídas ao primeiro gestor cadastrado. É idempotente e exige que já exista um gestor.
+
+```bash
+cd backend
+DATABASE_URL=postgres://... SEED_PASSWORD=<senha dos clientes demo> go run ./cmd/seed
+```
+
 ### Testes
 
 ```bash
