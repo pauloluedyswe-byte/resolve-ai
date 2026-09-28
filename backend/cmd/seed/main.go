@@ -51,6 +51,14 @@ var (
 
 type client struct{ name, email string }
 
+// staff é a equipe de manutenção fictícia (perfil gestor) que assume as
+// ocorrências abertas, para que nenhuma fique sem responsável.
+var staff = []client{
+	{"Roberto Siqueira", "roberto.siqueira" + demoDomain},
+	{"Sandra Figueiredo", "sandra.figueiredo" + demoDomain},
+	{"Marcelo Tavares", "marcelo.tavares" + demoDomain},
+}
+
 // randomClients gera n reclamantes com nomes aleatórios e e-mails únicos.
 func randomClients(n int) []client {
 	seen := map[string]bool{}
@@ -263,17 +271,39 @@ func run() error {
 			}
 		}
 
-		// Cada ocorrência é aberta por um reclamante diferente.
+		staffIDs := make([]int64, len(staff))
+		for i, c := range staff {
+			if err := tx.QueryRow(ctx,
+				`INSERT INTO users (name, email, password_hash, role, created_at) VALUES ($1, $2, $3, 'gestor', $4) RETURNING id`,
+				c.name, c.email, string(hash), now.Add(-30*24*time.Hour)).Scan(&staffIDs[i]); err != nil {
+				return err
+			}
+		}
+
+		// Cada ocorrência é aberta por um reclamante diferente. As abertas são
+		// distribuídas entre a equipe; as demais ficam com o gestor principal.
+		// Só a cancelada pelo próprio reclamante fica sem responsável.
+		opened := 0
 		for i, o := range occurrences {
 			catID, ok := categories[o.category]
 			if !ok {
 				return fmt.Errorf("categoria desconhecida: %s", o.category)
 			}
-			if err := insertOccurrence(ctx, tx, o, catID, clientIDs[i], gestorID, now); err != nil {
+			var assignee *int64
+			switch {
+			case o.cancelledByRequester:
+			case o.status == domain.StatusAberta:
+				assignee = &staffIDs[opened%len(staffIDs)]
+				opened++
+			default:
+				assignee = &gestorID
+			}
+			if err := insertOccurrence(ctx, tx, o, catID, clientIDs[i], gestorID, assignee, now); err != nil {
 				return fmt.Errorf("%q: %w", o.title, err)
 			}
 		}
-		fmt.Printf("criados %d reclamantes e %d ocorrências (responsável: gestor #%d)\n", len(clients), len(occurrences), gestorID)
+		fmt.Printf("criados %d reclamantes, %d gestores da equipe e %d ocorrências (gestor principal: #%d)\n",
+			len(clients), len(staff), len(occurrences), gestorID)
 		return nil
 	})
 }
@@ -285,6 +315,11 @@ func resetDemo(ctx context.Context, pool *pgxpool.Pool) error {
 		occ, err := tx.Exec(ctx, `DELETE FROM occurrences WHERE requester_id IN
 			(SELECT id FROM users WHERE email LIKE '%'||$1)`, demoDomain)
 		if err != nil {
+			return err
+		}
+		// Ocorrências reais atribuídas à equipe de demonstração ficam sem responsável.
+		if _, err := tx.Exec(ctx, `UPDATE occurrences SET assignee_id = NULL WHERE assignee_id IN
+			(SELECT id FROM users WHERE email LIKE '%'||$1)`, demoDomain); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM comments WHERE author_id IN
@@ -300,7 +335,7 @@ func resetDemo(ctx context.Context, pool *pgxpool.Pool) error {
 	})
 }
 
-func insertOccurrence(ctx context.Context, tx pgx.Tx, o occurrence, catID, requesterID, gestorID int64, now time.Time) error {
+func insertOccurrence(ctx context.Context, tx pgx.Tx, o occurrence, catID, requesterID, gestorID int64, assignee *int64, now time.Time) error {
 	created := now.Add(-time.Duration(o.daysAgo * float64(24*time.Hour)))
 	// Etapas espaçadas proporcionalmente à idade da ocorrência, limitadas a 18 h
 	// para um tempo de resolução realista (~2 dias).
@@ -325,10 +360,6 @@ func insertOccurrence(ctx context.Context, tx pgx.Tx, o occurrence, catID, reque
 	}
 	finalAt := at(len(steps) - 1)
 
-	var assignee *int64
-	if o.status != domain.StatusAberta && !o.cancelledByRequester {
-		assignee = &gestorID
-	}
 	var solution, ratingComment *string
 	var rating *int
 	var resolvedAt *time.Time
